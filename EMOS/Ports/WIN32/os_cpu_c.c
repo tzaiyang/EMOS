@@ -13,16 +13,7 @@
 
 #define    ALLOW_CS_RECURSION                                                  /* allow recursion of critical sections                                                     */
 
-#define    SET_AFFINITY_MASK                                                   /* must be used for miltiprocessor systems                                                  */
-
-#define    OS_CPU_TRACE                                                        /* allow print trace messages                                                               */
-
-#define     WIN_MM_TICK                                                        /* Enabling WIN_MM_TICK will cause the uC/OS-II port to use the high resolution Multimedia  */
-                                                                               /* timer instead of Sleep.  The higher resolution timer has a resolution of 1 ms, which     */
-                                                                               /* results in a much more "real-time" feel - jdf                                            */
-
-#define     WIN_MM_MIN_RES (1)                                                 /* Minimum timer resolution                                                                 */
-
+#define    SET_AFFINITY_MASK                                                   /* must be used for miltiprocessor systems                                                  */                                                             */
 
 /*
 *********************************************************************************************************
@@ -73,6 +64,7 @@ OS_EMU_STK          *SS_SP;
 void OSInitHookBegin(void)
 {
     OSSemaphore = CreateSemaphore( NULL, 1, 1, NULL );
+	
 }
 
 
@@ -112,9 +104,7 @@ void OS_EXIT_CRITICAL()
         }
     }
     else {
-#ifdef OS_CPU_TRACE
     OS_Printf("Error: OS_EXIT_CRITICAL\n");
-#endif
     }
 
 }
@@ -140,14 +130,13 @@ OS_STK *OSTaskStkInit (void (*task)(void *pd), void *pdata, OS_STK *ptos, INT16U
     return ((void *)stk);
 }
 
-/*$PAGE*/
+
 #if OS_CPU_HOOKS_EN
 /*
 *********************************************************************************************************
 *                                          TASK CREATION HOOK
 *********************************************************************************************************
 */
-
 void OSTCBInitHook(OS_TCB *ptcb)
 {
     OS_EMU_STK  *stack;
@@ -159,9 +148,7 @@ void OSTCBInitHook(OS_TCB *ptcb)
 #ifdef SET_AFFINITY_MASK
     if( SetThreadAffinityMask( stack->Handle, 1 ) == 0 ) 
 	{	
-#ifdef OS_CPU_TRACE
         OS_Printf("Error: SetThreadAffinityMask\n");
-#endif
     }
 #endif
 }
@@ -211,9 +198,7 @@ void OSStartHighRdy()
 
 #ifdef SET_AFFINITY_MASK
     if( SetThreadAffinityMask( OSCtxSwW32Handle, 1 ) == 0 ) {
-#ifdef OS_CPU_TRACE
         OS_Printf("Error: SetThreadAffinityMask\n");
-#endif
        }
 #endif
     
@@ -225,27 +210,12 @@ void OSStartHighRdy()
 #ifdef SET_AFFINITY_MASK
     if( SetThreadAffinityMask( OSTick32Handle, 1 ) == 0 ) 
 	{
-#ifdef OS_CPU_TRACE
         OS_Printf("Error: SetThreadAffinityMask\n");
-#endif
     }
 #endif
 
 	SetThreadPriority(OSTick32Handle,THREAD_PRIORITY_HIGHEST);
-
-#ifdef WIN_MM_TICK
-    timeGetDevCaps(&OSTimeCap, sizeof(OSTimeCap));
-
-    if( OSTimeCap.wPeriodMin < WIN_MM_MIN_RES )
-        OSTimeCap.wPeriodMin = WIN_MM_MIN_RES;
-
-    timeBeginPeriod(OSTimeCap.wPeriodMin);
-
-    OSTickEventHandle = CreateEvent(NULL, FALSE, FALSE, NULL);
-    OSTickTimer       = timeSetEvent((1000/OS_TICKS_PER_SEC),OSTimeCap.wPeriodMin,(LPTIMECALLBACK)OSTickEventHandle, dwID,TIME_PERIODIC|TIME_CALLBACK_EVENT_SET);
-#endif
-    
-    
+       
     SS_SP = (OS_EMU_STK*) OSTCBHighRdy->OSTCBStkPtr;                      /* OSTCBCur = OSTCBHighRdy;     */
                                                                           /* OSPrioCur = OSPrioHighRdy;   */
     ResumeThread(SS_SP->Handle);
@@ -253,12 +223,6 @@ void OSStartHighRdy()
     OS_EXIT_CRITICAL();
     
     WaitForSingleObject(OSCtxSwW32Handle,INFINITE);
-
-#ifdef WIN_MM_TICK
-    timeKillEvent(OSTickTimer);
-    timeEndPeriod(OSTimeCap.wPeriodMin);
-    CloseHandle(OSTickEventHandle);
-#endif
 
 	CloseHandle(OSTick32Handle);
     CloseHandle(OSCtxSwW32Event);
@@ -277,7 +241,6 @@ void OSCtxSw()
     if(!(SS_SP->Exit)) {
         n = SuspendThread(SS_SP->Handle);
     }
-
     //OSTrace( OBJ_SW, PT_SW_CTX, OSTCBHighRdy, 0, OSPrioCur, OSPrioHighRdy,0 );
 
     OSTCBCur = OSTCBHighRdy;
@@ -293,7 +256,6 @@ void OSCtxSw()
 ;                                        void OSIntCtxSw(void)
 ;*********************************************************************************************************
 */
-
 void OSIntCtxSw()
 {
     DWORD n = 0;
@@ -316,7 +278,6 @@ void OSIntCtxSw()
 ;                                            HANDLE TICK ISR
 ;*********************************************************************************************************
 */
-
 void OSTickISR()
 {
     OSIntEnter();
@@ -355,18 +316,7 @@ DWORD WINAPI OSTickW32( LPVOID lpParameter )
     while(!OSTerminateTickW32)
     {
         OSTickISR();
-#ifdef WIN_MM_TICK
-        if( WaitForSingleObject(OSTickEventHandle, 5000) == WAIT_TIMEOUT)
-        {
-            #ifdef OS_CPU_TRACE
-                OS_Printf("Error: MM OSTick Timeout!\n");
-            #endif
-        }
-
-        ResetEvent(OSTickEventHandle);
-#else
         Sleep(1000/OS_TICKS_PER_SEC);
-#endif
     }
 
     return 0;
@@ -384,14 +334,6 @@ DWORD WINAPI OSTaskW32( LPVOID lpParameter )
 
     ptcb = (OS_TCB*) lpParameter;
     stack = (OS_EMU_STK*) ptcb->OSTCBStkPtr;
-    
-#ifdef DISABLE_PRIORITY_BOOST
-        if( SetThreadPriorityBoost( stack->Handle, TRUE ) == 0 ) {
-#ifdef OS_CPU_TRACE
-            OS_Printf("Error: SetThreadPriorityBoost\n");
-#endif
-        }
-#endif
 
     stack->Task(stack->pData);
 
@@ -404,9 +346,7 @@ DWORD WINAPI OSTaskW32( LPVOID lpParameter )
 int OS_Printf(char *str, ...)
 {
     int  ret;
-
     va_list marker;
-
     va_start( marker, str );
 
     OS_ENTER_CRITICAL();
@@ -414,6 +354,5 @@ int OS_Printf(char *str, ...)
     OS_EXIT_CRITICAL();
 
     va_end( marker );
-
     return ret;
 }

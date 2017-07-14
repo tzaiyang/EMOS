@@ -41,7 +41,6 @@ INT8U  const  OSUnMapTbl[256] = {
 *                                       FUNCTION PROTOTYPES
 *********************************************************************************************************
 */
-static  void  OS_InitEventList(void);
 static  void  OS_InitMisc(void);
 static  void  OS_InitRdyList(void);
 static  void  OS_InitTaskIdle(void);
@@ -255,51 +254,6 @@ void  OSTimeTick (void)
             OS_EXIT_CRITICAL();
         }
     }
-}
-
-/*
-*********************************************************************************************************
-*                                             INITIALIZATION
-*                           INITIALIZE THE FREE LIST OF EVENT CONTROL BLOCKS
-*********************************************************************************************************
-*/
-static  void  OS_InitEventList (void)
-{
-#if (OS_EVENT_EN) && (OS_MAX_EVENTS > 0u)
-#if (OS_MAX_EVENTS > 1u)
-    INT16U     ix;
-    INT16U     ix_next;
-    OS_EVENT  *pevent1;
-    OS_EVENT  *pevent2;
-
-
-    OS_MemClr((INT8U *)&OSEventTbl[0], sizeof(OSEventTbl)); /* Clear the event table                   */
-    for (ix = 0u; ix < (OS_MAX_EVENTS - 1u); ix++) {        /* Init. list of free EVENT control blocks */
-        ix_next = ix + 1u;
-        pevent1 = &OSEventTbl[ix];
-        pevent2 = &OSEventTbl[ix_next];
-        pevent1->OSEventType    = OS_EVENT_TYPE_UNUSED;
-        pevent1->OSEventPtr     = pevent2;
-#if OS_EVENT_NAME_EN > 0u
-        pevent1->OSEventName    = (INT8U *)(void *)"?";     /* Unknown name                            */
-#endif
-    }
-    pevent1                         = &OSEventTbl[ix];
-    pevent1->OSEventType            = OS_EVENT_TYPE_UNUSED;
-    pevent1->OSEventPtr             = (OS_EVENT *)0;
-#if OS_EVENT_NAME_EN > 0u
-    pevent1->OSEventName            = (INT8U *)(void *)"?"; /* Unknown name                            */
-#endif
-    OSEventFreeList                 = &OSEventTbl[0];
-#else
-    OSEventFreeList                 = &OSEventTbl[0];       /* Only have ONE event control block       */
-    OSEventFreeList->OSEventType    = OS_EVENT_TYPE_UNUSED;
-    OSEventFreeList->OSEventPtr     = (OS_EVENT *)0;
-#if OS_EVENT_NAME_EN > 0u
-    OSEventFreeList->OSEventName    = (INT8U *)"?";         /* Unknown name                            */
-#endif
-#endif
-#endif
 }
 
 /*
@@ -559,41 +513,6 @@ void  OS_TaskStat (void *p_arg)
 
 /*
 *********************************************************************************************************
-*                                      CHECK ALL TASK STACKS
-* Description: This function is called by OS_TaskStat() to check the stacks of each active task.
-*********************************************************************************************************
-*/
-#if (OS_TASK_STAT_STK_CHK_EN > 0u) && (OS_TASK_CREATE_EXT_EN > 0u)
-void  OS_TaskStatStkChk (void)
-{
-    OS_TCB      *ptcb;
-    OS_STK_DATA  stk_data;
-    INT8U        err;
-    INT8U        prio;
-	
-    for (prio = 0u; prio <= OS_TASK_IDLE_PRIO; prio++) {
-        err = OSTaskStkChk(prio, &stk_data);
-        if (err == OS_ERR_NONE) {
-            ptcb = OSTCBPrioTbl[prio];
-            if (ptcb != (OS_TCB *)0) {                               /* Make sure task 'ptcb' is ...   */
-                if (ptcb != OS_TCB_RESERVED) {                       /* ... still valid.               */
-#if OS_TASK_PROFILE_EN > 0u
-                    #if OS_STK_GROWTH == 1u
-                    ptcb->OSTCBStkBase = ptcb->OSTCBStkBottom + ptcb->OSTCBStkSize;
-                    #else
-                    ptcb->OSTCBStkBase = ptcb->OSTCBStkBottom - ptcb->OSTCBStkSize;
-                    #endif
-                    ptcb->OSTCBStkUsed = stk_data.OSUsed;            /* Store the number of bytes used */
-#endif
-                }
-            }
-        }
-    }
-}
-#endif
-
-/*
-*********************************************************************************************************
 *                                            INITIALIZE TCB
 *********************************************************************************************************
 */
@@ -607,10 +526,6 @@ INT8U  OS_TCBInit (INT8U    prio,
 {
     OS_TCB    *ptcb;
 
-#if OS_TASK_REG_TBL_SIZE > 0u
-    INT8U      i;
-#endif
-
     OS_ENTER_CRITICAL();
     ptcb = OSTCBFreeList;                                  /* Get a free TCB from the free TCB list    */
     if (ptcb != (OS_TCB *)0) {
@@ -621,20 +536,6 @@ INT8U  OS_TCBInit (INT8U    prio,
         ptcb->OSTCBStat          = OS_STAT_RDY;            /* Task is ready to run                     */
         ptcb->OSTCBStatPend      = OS_STAT_PEND_OK;        /* Clear pend status                        */
         ptcb->OSTCBDly           = 0u;                     /* Task is not delayed                      */
-
-#if OS_TASK_CREATE_EXT_EN > 0u
-        ptcb->OSTCBExtPtr        = pext;                   /* Store pointer to TCB extension           */
-        ptcb->OSTCBStkSize       = stk_size;               /* Store stack size                         */
-        ptcb->OSTCBStkBottom     = pbos;                   /* Store pointer to bottom of stack         */
-        ptcb->OSTCBOpt           = opt;                    /* Store task options                       */
-        ptcb->OSTCBId            = id;                     /* Store task ID                            */
-#else
-        pext                     = pext;                   /* Prevent compiler warning if not used     */
-        stk_size                 = stk_size;
-        pbos                     = pbos;
-        opt                      = opt;
-        id                       = id;
-#endif
 
 #if OS_TASK_DEL_EN > 0u
         ptcb->OSTCBDelReq        = OS_ERR_NONE;
@@ -651,21 +552,6 @@ INT8U  OS_TCBInit (INT8U    prio,
         ptcb->OSTCBBitY          = (OS_PRIO)(1uL << ptcb->OSTCBY);
         ptcb->OSTCBBitX          = (OS_PRIO)(1uL << ptcb->OSTCBX);
 
-#if (OS_EVENT_EN)
-        ptcb->OSTCBEventPtr      = (OS_EVENT  *)0;         /* Task is not pending on an  event         */
-#if (OS_EVENT_MULTI_EN > 0u)
-        ptcb->OSTCBEventMultiPtr = (OS_EVENT **)0;         /* Task is not pending on any events        */
-#endif
-#endif
-
-#if (OS_FLAG_EN > 0u) && (OS_MAX_FLAGS > 0u) && (OS_TASK_DEL_EN > 0u)
-        ptcb->OSTCBFlagNode  = (OS_FLAG_NODE *)0;          /* Task is not pending on an event flag     */
-#endif
-
-#if (OS_MBOX_EN > 0u) || ((OS_Q_EN > 0u) && (OS_MAX_QS > 0u))
-        ptcb->OSTCBMsg       = (void *)0;                  /* No message received                      */
-#endif
-
 #if OS_TASK_PROFILE_EN > 0u
         ptcb->OSTCBCtxSwCtr    = 0uL;                      /* Initialize profiling variables           */
         ptcb->OSTCBCyclesStart = 0uL;
@@ -676,12 +562,6 @@ INT8U  OS_TCBInit (INT8U    prio,
 
 #if OS_TASK_NAME_EN > 0u
         ptcb->OSTCBTaskName    = (INT8U *)(void *)"?";
-#endif
-
-#if OS_TASK_REG_TBL_SIZE > 0u                              /* Initialize the task variables            */
-        for (i = 0u; i < OS_TASK_REG_TBL_SIZE; i++) {
-            ptcb->OSTCBRegTbl[i] = 0u;
-        }
 #endif
 
         OSTCBInitHook(ptcb);

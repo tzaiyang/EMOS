@@ -1,9 +1,0 @@
-﻿  os_time.c
-  os_task.c
-  os_mem.c
-  os_core.c
-  os_cpu_c.c
-  main.c
-  Generating Code...
-  EMOS.vcxproj -> C:\Users\ryan\Desktop\EMOS-v2.1\VC++\Debug\EMOS.exe
-  EMOS.vcxproj -> C:\Users\ryan\Desktop\EMOS-v2.1\VC++\Debug\EMOS.pdb (Partial PDB)

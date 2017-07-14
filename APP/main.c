@@ -40,10 +40,12 @@ OSStatInit();																				/* Statistic task init */
 		OSTaskCreate(App1Task, (void *)0, &App1Task_Stk[App1Task_StkSize-1], App1Task_Prio);
 		OSTaskCreate(App2Task, (void *)0, &App2Task_Stk[App2Task_StkSize-1], App2Task_Prio);
 		OSTaskCreate(App3Task, (void *)0, &App3Task_Stk[App3Task_StkSize-1], App3Task_Prio);
-
+	
+//		printf("%d\n", sizeof(unsigned short));
 		OSTimeDlyHMSM(0,0,1,0);																/* Task period is 1 second */
 		//OSTaskSuspend(OS_PRIO_SELF);
 		OSTaskDel(MainTask_Prio);															/* Delete main task */
+		
 
 	}
 }

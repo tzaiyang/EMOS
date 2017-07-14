@@ -240,78 +240,12 @@ INT8U  OSTaskResume (INT8U prio)
 
 /*
 *********************************************************************************************************
-*                                             STACK CHECKING
-*
-* Description: This function is called to check the amount of free memory left on the specified task's
-*              stack.
-*********************************************************************************************************
-*/
-#if (OS_TASK_STAT_STK_CHK_EN > 0u) && (OS_TASK_CREATE_EXT_EN > 0u)
-INT8U  OSTaskStkChk (INT8U         prio,
-                     OS_STK_DATA  *p_stk_data)
-{
-    OS_TCB    *ptcb;
-    OS_STK    *pchk;
-    INT32U     nfree;
-    INT32U     size;
-
-#if OS_ARG_CHK_EN > 0u
-    if (prio > OS_LOWEST_PRIO) {                       /* Make sure task priority is valid             */
-        if (prio != OS_PRIO_SELF) {
-            return (OS_ERR_PRIO_INVALID);
-        }
-    }
-    if (p_stk_data == (OS_STK_DATA *)0) {              /* Validate 'p_stk_data'                        */
-        return (OS_ERR_PDATA_NULL);
-    }
-#endif
-    p_stk_data->OSFree = 0u;                           /* Assume failure, set to 0 size                */
-    p_stk_data->OSUsed = 0u;
-    OS_ENTER_CRITICAL();
-    if (prio == OS_PRIO_SELF) {                        /* See if check for SELF                        */
-        prio = OSTCBCur->OSTCBPrio;
-    }
-    ptcb = OSTCBPrioTbl[prio];
-    if (ptcb == (OS_TCB *)0) {                         /* Make sure task exist                         */
-        OS_EXIT_CRITICAL();
-        return (OS_ERR_TASK_NOT_EXIST);
-    }
-    if (ptcb == OS_TCB_RESERVED) {
-        OS_EXIT_CRITICAL();
-        return (OS_ERR_TASK_NOT_EXIST);
-    }
-    if ((ptcb->OSTCBOpt & OS_TASK_OPT_STK_CHK) == 0u) { /* Make sure stack checking option is set      */
-        OS_EXIT_CRITICAL();
-        return (OS_ERR_TASK_OPT);
-    }
-    nfree = 0u;
-    size  = ptcb->OSTCBStkSize;
-    pchk  = ptcb->OSTCBStkBottom;
-    OS_EXIT_CRITICAL();
-#if OS_STK_GROWTH == 1u
-    while (*pchk++ == (OS_STK)0) {                    /* Compute the number of zero entries on the stk */
-        nfree++;
-    }
-#else
-    while (*pchk-- == (OS_STK)0) {
-        nfree++;
-    }
-#endif
-    p_stk_data->OSFree = nfree * sizeof(OS_STK);          /* Compute number of free bytes on the stack */
-    p_stk_data->OSUsed = (size - nfree) * sizeof(OS_STK); /* Compute number of bytes used on the stack */
-    return (OS_ERR_NONE);
-}
-#endif
-
-/*
-*********************************************************************************************************
 *                                            SUSPEND A TASK
 *
 * Description: This function is called to suspend a task.  The task can be the calling task if the
 *              priority passed to OSTaskSuspend() is the priority of the calling task or OS_PRIO_SELF.
 *********************************************************************************************************
 */
-
 #if OS_TASK_SUSPEND_EN > 0u
 INT8U  OSTaskSuspend (INT8U prio)
 {
