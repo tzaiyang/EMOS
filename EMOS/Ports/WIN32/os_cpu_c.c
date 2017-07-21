@@ -73,6 +73,7 @@ int             Recursion = 0;
 void OSInitHookBegin(void)
 {
 	OSSemaphore = CreateSemaphore(NULL, 1, 1, NULL);
+
 }
 
 

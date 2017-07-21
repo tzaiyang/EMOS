@@ -35,5 +35,5 @@ extern void MainTask(void *p_arg);
 extern void App1Task(void *p_arg);
 extern void App2Task(void *p_arg);
 extern void App3Task(void *p_arg);
-
+extern void App4Task(int  *p_arg);
 #endif
